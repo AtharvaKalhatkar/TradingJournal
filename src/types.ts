@@ -1,8 +1,8 @@
 export type Direction = 'LONG' | 'SHORT';
 export type MarketType = 'STOCK' | 'CRYPTO' | 'FOREX' | 'COMMODITY';
-export type InstrumentType = 'EQUITY' | 'FNO' | 'FUTURES' | 'OPTIONS';
-export type Emotion = 'NEUTRAL' | 'CONFIDENT' | 'ANXIOUS' | 'FOMO' | 'TILTED' | 'DISCIPLINED' | 'GREEDY' | 'REVENGE' | 'SATISFIED';
-export type MistakeType = 'EARLY_ENTRY' | 'LATE_ENTRY' | 'EARLY_EXIT' | 'LATE_EXIT' | 'OVERSIZED' | 'NO_STOPLOSS' | 'NO_PLAN' | 'FOMO' | 'REVENGE' | 'OVERTRADED' | 'OTHER';
+export type InstrumentType = 'EQUITY' | 'FNO' | (string & {});
+export type Emotion = 'NEUTRAL' | 'CONFIDENT' | 'ANXIOUS' | 'FOMO' | 'TILTED' | 'DISCIPLINED' | 'GREEDY' | 'REVENGE' | 'SATISFIED' | (string & {});
+export type Mistake = 'EARLY_ENTRY' | 'LATE_ENTRY' | 'EARLY_EXIT' | 'LATE_EXIT' | 'OVERSIZED' | 'NO_SL' | 'NO_PLAN' | 'FOMO' | 'REVENGE' | 'OVERTRADE' | 'OTHER' | (string & {});
 
 export interface Trade {
   id: string;
@@ -18,7 +18,7 @@ export interface Trade {
   fees: number;
   strategy: string;
   emotion: Emotion;
-  mistakes: MistakeType[];
+  mistakes: Mistake[];
   tags: string[];
   notes: string;
   pnl: number;

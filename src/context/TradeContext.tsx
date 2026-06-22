@@ -1,127 +1,81 @@
-import React, { type ReactNode, createContext, useContext, useState, useEffect } from 'react';
-import type { Trade, Playbook, Direction, MarketType, InstrumentType, MistakeType } from '../types';
-import { format } from 'date-fns';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import type { Trade, Playbook } from '../types';
 
 interface TradeContextType {
   trades: Trade[];
-  addTrade: (trade: Omit<Trade, 'id' | 'pnl' | 'pnlPercent' | 'investment' | 'duration'>) => void;
+  addTrade: (trade: Trade) => void;
   deleteTrade: (id: string) => void;
   playbooks: Playbook[];
-  addPlaybook: (playbook: Omit<Playbook, 'id'>) => void;
+  addPlaybook: (p: Playbook) => void;
   deletePlaybook: (id: string) => void;
-  formatMoney: (value: number) => string;
-  formatPercent: (value: number) => string;
+  formatMoney: (n: number) => string;
 }
 
-const TradeContext = createContext<TradeContextType | undefined>(undefined);
+const Ctx = createContext<TradeContextType>(null!);
 
-const initialTrades: Trade[] = [
+const now = Date.now();
+const day = 86400000;
+
+const defaultTrades: Trade[] = [
   {
-    id: '1', symbol: 'AAPL', marketType: 'STOCK', instrumentType: 'EQUITY', direction: 'LONG',
-    entryDate: new Date(Date.now() - 5 * 86400000).toISOString(), exitDate: new Date(Date.now() - 4 * 86400000).toISOString(),
-    entryPrice: 175.50, exitPrice: 180.20, quantity: 100, fees: 2.50,
-    strategy: 'Breakout', emotion: 'CONFIDENT', mistakes: [], tags: ['momentum'], notes: 'Textbook breakout with volume confirmation.',
-    pnl: 467.50, pnlPercent: 2.66, investment: 17550, duration: '1d', status: 'CLOSED',
+    id: '1', symbol: 'RELIANCE', marketType: 'STOCK', instrumentType: 'EQUITY', direction: 'LONG',
+    entryDate: new Date(now - 5 * day).toISOString(), exitDate: new Date(now - 4 * day).toISOString(),
+    entryPrice: 2850, exitPrice: 2945, quantity: 10, fees: 45,
+    strategy: 'Breakout', emotion: 'CONFIDENT', mistakes: [], tags: ['momentum'],
+    notes: 'Clean breakout on volume, held for target.', pnl: 950, pnlPercent: 3.33, investment: 28500, duration: '1d', status: 'CLOSED',
   },
   {
     id: '2', symbol: 'BTC', marketType: 'CRYPTO', instrumentType: 'FUTURES', direction: 'SHORT',
-    entryDate: new Date(Date.now() - 3 * 86400000).toISOString(), exitDate: new Date(Date.now() - 2 * 86400000).toISOString(),
-    entryPrice: 65000, exitPrice: 66000, quantity: 0.5, fees: 15.00,
-    strategy: 'Reversal', emotion: 'FOMO', mistakes: ['EARLY_ENTRY', 'NO_STOPLOSS'], tags: ['mistake'], notes: 'Entered too early, got stopped out.',
-    pnl: -515.00, pnlPercent: -1.58, investment: 32500, duration: '4h', status: 'CLOSED',
+    entryDate: new Date(now - 3 * day).toISOString(), exitDate: new Date(now - 2 * day).toISOString(),
+    entryPrice: 65000, exitPrice: 67200, quantity: 0.5, fees: 25,
+    strategy: 'Reversal', emotion: 'FOMO', mistakes: ['EARLY_ENTRY', 'NO_STOPLOSS'], tags: [],
+    notes: 'Entered too early, got stopped out for a loss.', pnl: -1125, pnlPercent: -3.46, investment: 32500, duration: '4h', status: 'CLOSED',
   },
   {
-    id: '3', symbol: 'NIFTY', marketType: 'STOCK', instrumentType: 'OPTIONS', direction: 'LONG',
-    entryDate: new Date(Date.now() - 1 * 86400000).toISOString(), exitDate: new Date().toISOString(),
-    entryPrice: 150.00, exitPrice: 160.00, quantity: 2, fees: 5.00,
-    strategy: 'Earnings', emotion: 'DISCIPLINED', mistakes: [], tags: ['earnings'], notes: 'Held through volatility, hit target.',
-    pnl: 995.00, pnlPercent: 6.63, investment: 15000, duration: '1d', status: 'CLOSED',
+    id: '3', symbol: 'TCS', marketType: 'STOCK', instrumentType: 'EQUITY', direction: 'LONG',
+    entryDate: new Date(now - 2 * day).toISOString(), exitDate: new Date(now - 1 * day).toISOString(),
+    entryPrice: 3890, exitPrice: 4010, quantity: 5, fees: 30,
+    strategy: 'Earnings Play', emotion: 'DISCIPLINED', mistakes: [], tags: ['earnings'],
+    notes: 'Earnings breakout, hit target in 2 sessions.', pnl: 570, pnlPercent: 2.93, investment: 19450, duration: '1d', status: 'CLOSED',
   },
 ];
 
-const initialPlaybooks: Playbook[] = [
-  {
-    id: '1', name: 'Breakout',
-    description: 'Trading a clear break of resistance with volume.',
-    rules: [
-      { id: 'r1', text: 'Price must consolidate for at least 3 periods' },
-      { id: 'r2', text: 'Breakout candle must have above-average volume' },
-      { id: 'r3', text: 'Stop loss placed below the breakout candle' },
-    ],
-  },
-  {
-    id: '2', name: 'Reversal',
-    description: 'Catching trend reversals at key levels.',
-    rules: [
-      { id: 'r4', text: 'RSI must be oversold (<30)' },
-      { id: 'r5', text: 'Price at key support level' },
-      { id: 'r6', text: 'Bullish divergence on RSI' },
-    ],
-  },
+const defaultPlaybooks: Playbook[] = [
+  { id: '1', name: 'Breakout', description: 'Break of key level with volume confirmation.', rules: [{ id: 'r1', text: 'Price above 20 EMA' }, { id: 'r2', text: 'Volume > 1.5x average' }] },
+  { id: '2', name: 'Reversal', description: 'Catch trend reversals at support/resistance.', rules: [{ id: 'r3', text: 'RSI oversold (<30)' }, { id: 'r4', text: 'Bullish divergence' }] },
 ];
 
-function calcDuration(entry: string, exit: string): string {
-  const ms = new Date(exit).getTime() - new Date(entry).getTime();
-  const hrs = Math.round(ms / 3600000);
-  if (hrs < 1) return `${Math.round(ms / 60000)}m`;
-  if (hrs < 24) return `${hrs}h`;
-  return `${Math.round(hrs / 24)}d`;
-}
-
-export function TradeProvider({ children }: { children: ReactNode }) {
+export function TradeProvider({ children }: { children: React.ReactNode }) {
   const [trades, setTrades] = useState<Trade[]>(() => {
-    const saved = localStorage.getItem('tj_trades');
-    return saved ? JSON.parse(saved) : initialTrades;
+    try { const s = localStorage.getItem('tj_trades'); return s ? JSON.parse(s) : defaultTrades; }
+    catch { return defaultTrades; }
   });
 
   const [playbooks, setPlaybooks] = useState<Playbook[]>(() => {
-    const saved = localStorage.getItem('tj_playbooks');
-    return saved ? JSON.parse(saved) : initialPlaybooks;
+    try { const s = localStorage.getItem('tj_playbooks'); return s ? JSON.parse(s) : defaultPlaybooks; }
+    catch { return defaultPlaybooks; }
   });
 
   useEffect(() => { localStorage.setItem('tj_trades', JSON.stringify(trades)); }, [trades]);
   useEffect(() => { localStorage.setItem('tj_playbooks', JSON.stringify(playbooks)); }, [playbooks]);
 
-  const addTrade = (data: Omit<Trade, 'id' | 'pnl' | 'pnlPercent' | 'investment' | 'duration'>) => {
-    const isLong = data.direction === 'LONG';
-    const priceDiff = isLong ? (data.exitPrice - data.entryPrice) : (data.entryPrice - data.exitPrice);
-    const rawPnl = priceDiff * data.quantity;
-    const pnl = rawPnl - data.fees;
-    const investment = data.entryPrice * data.quantity;
-    const pnlPercent = investment > 0 ? (pnl / investment) * 100 : 0;
-    const duration = calcDuration(data.entryDate, data.exitDate);
-    setTrades([{
-      ...data, id: crypto.randomUUID(), pnl, pnlPercent, investment, duration, status: 'CLOSED',
-    }, ...trades]);
-  };
+  const addTrade = useCallback((t: Trade) => setTrades(prev => [t, ...prev]), []);
+  const deleteTrade = useCallback((id: string) => setTrades(prev => prev.filter(t => t.id !== id)), []);
+  const addPlaybook = useCallback((p: Playbook) => setPlaybooks(prev => [...prev, p]), []);
+  const deletePlaybook = useCallback((id: string) => setPlaybooks(prev => prev.filter(p => p.id !== id)), []);
 
-  const deleteTrade = (id: string) => setTrades(trades.filter(t => t.id !== id));
-
-  const addPlaybook = (data: Omit<Playbook, 'id'>) => {
-    setPlaybooks([...playbooks, { ...data, id: crypto.randomUUID() }]);
-  };
-
-  const deletePlaybook = (id: string) => setPlaybooks(playbooks.filter(p => p.id !== id));
-
-  const formatMoney = (value: number) => {
-    const abs = Math.abs(value);
+  const formatMoney = useCallback((n: number) => {
+    const abs = Math.abs(n);
+    if (abs >= 100000) return '$' + (abs / 100000).toFixed(1) + 'L';
     if (abs >= 1000) return '$' + (abs / 1000).toFixed(1) + 'K';
-    return '$' + abs.toFixed(2);
-  };
-
-  const formatPercent = (value: number) => {
-    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
-  };
+    return '$' + n.toFixed(2);
+  }, []);
 
   return (
-    <TradeContext.Provider value={{ trades, addTrade, deleteTrade, playbooks, addPlaybook, deletePlaybook, formatMoney, formatPercent }}>
+    <Ctx.Provider value={{ trades, addTrade, deleteTrade, playbooks, addPlaybook, deletePlaybook, formatMoney }}>
       {children}
-    </TradeContext.Provider>
+    </Ctx.Provider>
   );
 }
 
-export function useTradeContext() {
-  const context = useContext(TradeContext);
-  if (context === undefined) throw new Error('useTradeContext must be used within a TradeProvider');
-  return context;
-}
+export const useTradeContext = () => useContext(Ctx);

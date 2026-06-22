@@ -1,41 +1,32 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, BookOpen, BarChart3, User } from 'lucide-react';
+import { LayoutDashboard, BookOpen, BarChart3, Settings } from 'lucide-react';
 
-const items = [
-  { to: '/', icon: Home, label: 'Home' },
+const tabs = [
+  { to: '/', icon: LayoutDashboard, label: 'Home' },
   { to: '/journal', icon: BookOpen, label: 'Journal' },
   { to: '/analytics', icon: BarChart3, label: 'Analytics' },
-  { to: '/profile', icon: User, label: 'Profile' },
+  { to: '/profile', icon: Settings, label: 'Profile' },
 ];
 
 export function BottomNav() {
   return (
-    <nav style={{
+    <div style={{
       position: 'fixed', bottom: 0, left: 0, right: 0,
-      background: '#fff',
-      borderTop: '1px solid var(--border)',
-      display: 'flex', justifyContent: 'space-around',
-      padding: '0.5rem 0 calc(0.5rem + env(safe-area-inset-bottom))',
-      zIndex: 100,
-      maxWidth: '480px', margin: '0 auto',
+      background: '#fff', borderTop: '1px solid var(--border)',
+      display: 'flex', padding: '0.4rem 0 calc(0.4rem + env(safe-area-inset-bottom))',
+      maxWidth: 480, margin: '0 auto', zIndex: 100,
     }}>
-      {items.map(item => (
-        <NavLink
-          key={item.to}
-          to={item.to}
-          style={({ isActive }) => ({
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            gap: '2px', textDecoration: 'none', flex: 1,
-            color: isActive ? 'var(--accent-blue)' : 'var(--text-muted)',
-            fontSize: '0.6rem', fontWeight: isActive ? '600' : '400',
-            transition: 'color 0.15s',
-          })}
-        >
-          <item.icon size={20} />
-          <span>{item.label}</span>
+      {tabs.map(t => (
+        <NavLink key={t.to} to={t.to} style={({ isActive }) => ({
+          flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+          gap: 2, textDecoration: 'none', fontSize: '0.6rem', fontWeight: 500,
+          color: isActive ? 'var(--accent)' : 'var(--text-muted)',
+        })}>
+          <t.icon size={20} />
+          <span>{t.label}</span>
         </NavLink>
       ))}
-    </nav>
+    </div>
   );
 }
