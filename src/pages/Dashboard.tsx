@@ -35,7 +35,7 @@ const MetricBarChart = ({ data, title }: { data: any[], title: string }) => {
   return (
     <div style={{ backgroundColor: '#1A1A1C', borderRadius: '16px', padding: '1.5rem', position: 'relative' }}>
       <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>{title}</p>
-      <div style={{ height: '300px', width: '100%', margin: '0 -1.5rem', width: 'calc(100% + 3rem)' }}>
+      <div style={{ height: '300px', width: 'calc(100% + 3rem)', margin: '0 -1.5rem' }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
@@ -45,7 +45,7 @@ const MetricBarChart = ({ data, title }: { data: any[], title: string }) => {
               cursor={{fill: 'rgba(255,255,255,0.05)'}}
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {
-                  const val = payload[0].value;
+                  const val = payload[0].value as number;
                   return (
                     <div style={{ backgroundColor: '#161618', padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
                       <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{payload[0].payload.name}</p>
@@ -190,7 +190,7 @@ export function Dashboard() {
           {/* Chart Section */}
           <div style={{ backgroundColor: '#1A1A1C', borderRadius: '16px', padding: '1.5rem', position: 'relative' }}>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1rem' }}>Dashboard Analysis</p>
-            <div style={{ height: '200px', width: '100%', margin: '0 -1.5rem', width: 'calc(100% + 3rem)' }}>
+            <div style={{ height: '200px', width: 'calc(100% + 3rem)', margin: '0 -1.5rem' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData}>
                   <defs>
