@@ -9,6 +9,15 @@ export function calculateMetrics(trades: Trade[]) {
       averageWin: 0,
       averageLoss: 0,
       totalTrades: 0,
+      winningTradesCount: 0,
+      losingTradesCount: 0,
+      bestTrade: null as Trade | null,
+      worstTrade: null as Trade | null,
+      avgR: 0,
+      expectancy: 0,
+      maxDrawdown: 0,
+      consecutiveWins: 0,
+      consecutiveLosses: 0,
     };
   }
 
@@ -25,12 +34,28 @@ export function calculateMetrics(trades: Trade[]) {
   const averageWin = winningTrades.length > 0 ? grossProfit / winningTrades.length : 0;
   const averageLoss = losingTrades.length > 0 ? grossLoss / losingTrades.length : 0;
 
-  let bestTrade: Trade | null = null;
-  let worstTrade: Trade | null = null;
+  const bestTrade = trades.length > 0 ? trades.reduce((prev, current) => (prev.pnl > current.pnl) ? prev : current) : null;
+  const worstTrade = trades.length > 0 ? trades.reduce((prev, current) => (prev.pnl < current.pnl) ? prev : current) : null;
 
-  if (trades.length > 0) {
-    bestTrade = trades.reduce((prev, current) => (prev.pnl > current.pnl) ? prev : current);
-    worstTrade = trades.reduce((prev, current) => (prev.pnl < current.pnl) ? prev : current);
+  const avgR = averageLoss > 0 ? averageWin / averageLoss : 0;
+  const expectancy = (winRate / 100) * averageWin - ((100 - winRate) / 100) * averageLoss;
+
+  let maxDrawdown = 0;
+  let peak = 0;
+  let cumSum = 0;
+  const sorted = [...trades].sort((a, b) => new Date(a.exitDate).getTime() - new Date(b.exitDate).getTime());
+  for (const t of sorted) {
+    cumSum += t.pnl;
+    if (cumSum > peak) peak = cumSum;
+    const dd = peak - cumSum;
+    if (dd > maxDrawdown) maxDrawdown = dd;
+  }
+
+  let consecutiveWins = 0, consecutiveLosses = 0, curWins = 0, curLosses = 0;
+  const byDate = [...trades].sort((a, b) => new Date(a.exitDate).getTime() - new Date(b.exitDate).getTime());
+  for (const t of byDate) {
+    if (t.pnl > 0) { curWins++; curLosses = 0; consecutiveWins = Math.max(consecutiveWins, curWins); }
+    else { curLosses++; curWins = 0; consecutiveLosses = Math.max(consecutiveLosses, curLosses); }
   }
 
   return {
@@ -44,6 +69,11 @@ export function calculateMetrics(trades: Trade[]) {
     losingTradesCount: losingTrades.length,
     bestTrade,
     worstTrade,
+    avgR,
+    expectancy,
+    maxDrawdown,
+    consecutiveWins,
+    consecutiveLosses,
   };
 }
 
@@ -54,7 +84,6 @@ export function formatCurrency(value: number, currency: string = 'USD'): string 
     'EUR': 'en-DE',
     'GBP': 'en-GB'
   };
-  
   return new Intl.NumberFormat(locales[currency] || 'en-US', {
     style: 'currency',
     currency: currency,

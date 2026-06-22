@@ -1,25 +1,31 @@
-export type TradeType = 'LONG' | 'SHORT';
-export type AssetClass = 'STOCKS' | 'CRYPTO' | 'FOREX' | 'OPTIONS' | 'FUTURES';
-export type Emotion = 'NEUTRAL' | 'CONFIDENT' | 'ANXIOUS' | 'FOMO' | 'TILTED' | 'DISCIPLINED';
+export type Direction = 'LONG' | 'SHORT';
+export type MarketType = 'STOCK' | 'CRYPTO' | 'FOREX' | 'COMMODITY';
+export type InstrumentType = 'EQUITY' | 'FNO' | 'FUTURES' | 'OPTIONS';
+export type Emotion = 'NEUTRAL' | 'CONFIDENT' | 'ANXIOUS' | 'FOMO' | 'TILTED' | 'DISCIPLINED' | 'GREEDY' | 'REVENGE' | 'SATISFIED';
+export type MistakeType = 'EARLY_ENTRY' | 'LATE_ENTRY' | 'EARLY_EXIT' | 'LATE_EXIT' | 'OVERSIZED' | 'NO_STOPLOSS' | 'NO_PLAN' | 'FOMO' | 'REVENGE' | 'OVERTRADED' | 'OTHER';
 
 export interface Trade {
   id: string;
   symbol: string;
-  assetClass: AssetClass;
-  type: TradeType;
+  marketType: MarketType;
+  instrumentType: InstrumentType;
+  direction: Direction;
   entryDate: string;
   exitDate: string;
   entryPrice: number;
   exitPrice: number;
   quantity: number;
-  multiplier: number; // Phase 3: Multiplier for Options/Forex
   fees: number;
-  setup: string;
+  strategy: string;
   emotion: Emotion;
+  mistakes: MistakeType[];
+  tags: string[];
   notes: string;
-  pnl: number; 
-  pnlPercent: number; 
-  chartUrl?: string; // Phase 2: Chart Attachment
+  pnl: number;
+  pnlPercent: number;
+  investment: number;
+  duration: string;
+  status: 'OPEN' | 'CLOSED';
 }
 
 export interface PlaybookRule {
