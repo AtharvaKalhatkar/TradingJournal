@@ -5,9 +5,7 @@ import { TradeProvider } from './context/TradeContext'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <TradeProvider>
-      <App />
-    </TradeProvider>
-  </React.StrictMode>,
+  <TradeProvider>
+    <App />
+  </TradeProvider>,
 )

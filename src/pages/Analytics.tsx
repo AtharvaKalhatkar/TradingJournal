@@ -1,34 +1,39 @@
 import React, { useState, useMemo } from 'react';
-import { useTradeContext } from '../context/TradeContext';
+import { useTrade } from '../context/TradeContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
-  PieChart, Pie, Sector, AreaChart, Area } from 'recharts';
+  PieChart, Pie, Sector, AreaChart, Area, LineChart, Line } from 'recharts';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay } from 'date-fns';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, Brain } from 'lucide-react';
+import { rollingWinRate, mistakeCostAnalysis, emotionTrends } from '../utils/calculations';
 
-type Tab = 'Dashboard' | 'Calendar' | 'Day' | 'Direction' | 'Session';
+type Tab = 'Dashboard' | 'Calendar' | 'Day' | 'Direction' | 'Session' | 'Psychology';
 
 export function Analytics() {
-  const { trades, formatMoney } = useTradeContext();
+  const { trades, fmt } = useTrade();
   const [tab, setTab] = useState<Tab>('Dashboard');
   const [activePie, setActivePie] = useState(0);
-  const tabs: Tab[] = ['Dashboard', 'Calendar', 'Day', 'Direction', 'Session'];
+  const tabs: Tab[] = ['Dashboard', 'Calendar', 'Day', 'Direction', 'Session', 'Psychology'];
 
   const wins = trades.filter(t => t.pnl > 0);
   const losses = trades.filter(t => t.pnl <= 0);
   const totalPnL = trades.reduce((s, t) => s + t.pnl, 0);
   const winRate = trades.length > 0 ? (wins.length / trades.length) * 100 : 0;
 
+  const gp = wins.reduce((s, t) => s + t.pnl, 0);
+  const gl = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
+  const pf = gl === 0 ? (gp > 0 ? 99 : 0) : gp / gl;
+
   const eqData = useMemo(() => {
-    const sorted = [...trades].sort((a, b) => new Date(a.exitDate).getTime() - new Date(b.exitDate).getTime());
+    const sorted = [...trades].filter(t => t.status !== 'OPEN').sort((a, b) => new Date(a.exitDate || a.entryDate).getTime() - new Date(b.exitDate || b.entryDate).getTime());
     let cum = 0;
-    return sorted.map(t => { cum += t.pnl; return { date: format(new Date(t.exitDate), 'MMM dd'), value: cum }; });
+    return sorted.map(t => { cum += t.pnl; return { date: format(new Date(t.exitDate || t.entryDate), 'MMM dd'), value: cum }; });
   }, [trades]);
 
   const dayData = useMemo(() => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const d = days.map(name => ({ name, pnl: 0, w: 0, l: 0 }));
     trades.forEach(t => {
-      const idx = new Date(t.exitDate).getDay();
+      const idx = new Date(t.exitDate || t.entryDate).getDay();
       d[idx].pnl += t.pnl;
       if (t.pnl > 0) d[idx].w++; else d[idx].l++;
     });
@@ -42,8 +47,7 @@ export function Analytics() {
       if (t.direction === 'LONG') { long.pnl += t.pnl; t.pnl > 0 ? long.w++ : long.l++; }
       else { short.pnl += t.pnl; t.pnl > 0 ? short.w++ : short.l++; }
     });
-    return [
-      { name: 'Long', ...long, wr: long.w + long.l > 0 ? (long.w / (long.w + long.l)) * 100 : 0 },
+    return [{ name: 'Long', ...long, wr: long.w + long.l > 0 ? (long.w / (long.w + long.l)) * 100 : 0 },
       { name: 'Short', ...short, wr: short.w + short.l > 0 ? (short.w / (short.w + short.l)) * 100 : 0 },
     ].filter(d => d.w + d.l > 0);
   }, [trades]);
@@ -56,25 +60,28 @@ export function Analytics() {
       { name: 'Evening', h: [16, 17, 18, 19, 20, 21, 22, 23], pnl: 0, w: 0, l: 0 },
     ];
     trades.forEach(t => {
-      const hour = new Date(t.exitDate).getHours();
+      const hour = new Date(t.exitDate || t.entryDate).getHours();
       const se = s.find(x => x.h.includes(hour));
       if (se) { se.pnl += t.pnl; t.pnl > 0 ? se.w++ : se.l++; }
     });
     return s.filter(x => x.w + x.l > 0).map(x => ({ ...x, wr: (x.w / (x.w + x.l)) * 100 }));
   }, [trades]);
 
+  const mistakes = useMemo(() => mistakeCostAnalysis(trades), [trades]);
+  const emotions = useMemo(() => emotionTrends(trades), [trades]);
+  const rollData = useMemo(() => rollingWinRate(trades, 20), [trades]);
+
   const renderBar = (data: any[]) => (
     <div style={{ height: 200, width: '100%', marginTop: 8 }}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#eee" vertical={false} />
-          <XAxis dataKey="name" stroke="#9ea3b5" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-          <YAxis stroke="#9ea3b5" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-          <Tooltip
-            contentStyle={{ border: '1px solid #e8eaef', borderRadius: '8px', fontSize: '0.8rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
-            cursor={{ fill: '#f5f6fa' }}
-            formatter={(val: any) => [formatMoney(val), 'PnL']}
-          /><Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+          <XAxis dataKey="name" stroke="var(--text-muted)" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+          <YAxis stroke="var(--text-muted)" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+          <Tooltip contentStyle={{ border: '1px solid var(--border)', borderRadius: 8, fontSize: '0.8rem', background: 'var(--bg-card)', color: 'var(--text)' }}
+            cursor={{ fill: 'var(--bg-hover)' }}
+            formatter={(val: any) => [fmt(val), 'PnL']} />
+          <Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
             {data.map((e: any, i: number) => <Cell key={i} fill={e.pnl >= 0 ? '#22c55e' : '#ef4444'} />)}
           </Bar>
         </BarChart>
@@ -87,27 +94,23 @@ export function Analytics() {
     if (!total) return null;
     const renderActiveShape = (props: any) => {
       const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent } = props;
-      return (
-        <g>
-          <text x={cx} y={cy - 8} textAnchor="middle" fill="var(--text)" fontSize={20} fontWeight={700}>
-            {(percent * 100).toFixed(0)}%
-          </text>
-          <text x={cx} y={cy + 12} textAnchor="middle" fill="var(--text-secondary)" fontSize={10}>
-            {payload.name}
-          </text>
-          <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 4}
-            startAngle={startAngle} endAngle={endAngle} fill={fill} />
-        </g>
-      );
+      return (<g>
+        <text x={cx} y={cy - 8} textAnchor="middle" fill="var(--text)" fontSize={20} fontWeight={700}>
+          {(percent * 100).toFixed(0)}%
+        </text>
+        <text x={cx} y={cy + 12} textAnchor="middle" fill="var(--text-secondary)" fontSize={10}>
+          {payload.name}
+        </text>
+        <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 4}
+          startAngle={startAngle} endAngle={endAngle} fill={fill} />
+      </g>);
     };
-    const onPieEnter = (_: any, i: number) => setActivePie(i);
     return (
       <div style={{ display: 'flex', justifyContent: 'center', marginTop: '0.5rem' }}>
         <PieChart width={220} height={220}>
-          <Pie
-            {...{ activeIndex: activePie } as any} activeShape={renderActiveShape}
+          <Pie {...{ activeIndex: activePie } as any} activeShape={renderActiveShape}
             data={data} cx={110} cy={110} innerRadius={60} outerRadius={90}
-            dataKey="value" onMouseEnter={onPieEnter}>
+            dataKey="value" onMouseEnter={(_: any, i: number) => setActivePie(i)}>
             {data.map((e, i) => <Cell key={i} fill={e.color} />)}
           </Pie>
         </PieChart>
@@ -122,11 +125,9 @@ export function Analytics() {
       <div style={{ display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 4 }}>
         {tabs.map(t => (
           <button key={t} onClick={() => setTab(t)}
-            style={{
-              padding: '0.4rem 1rem', borderRadius: 20, fontSize: '0.8rem', fontWeight: 500,
+            style={{ padding: '0.4rem 1rem', borderRadius: 20, fontSize: '0.8rem', fontWeight: 500,
               whiteSpace: 'nowrap', background: tab === t ? 'var(--accent)' : 'var(--bg-input)',
-              color: tab === t ? '#fff' : 'var(--text-secondary)',
-            }}>
+              color: tab === t ? '#fff' : 'var(--text-secondary)' }}>
             {t}
           </button>
         ))}
@@ -141,7 +142,7 @@ export function Analytics() {
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={eqData}>
                     <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#22c55e" stopOpacity={0.2}/><stop offset="100%" stopColor="#22c55e" stopOpacity={0}/></linearGradient></defs>
-                    <Tooltip contentStyle={{ border: '1px solid #e5e7ec', borderRadius: 8, fontSize: '0.8rem' }} cursor={{ stroke: '#ccc', strokeDasharray: '3 3' }} />
+                    <Tooltip contentStyle={{ border: '1px solid var(--border)', borderRadius: 8, fontSize: '0.8rem', background: 'var(--bg-card)' }} cursor={{ stroke: '#ccc', strokeDasharray: '3 3' }} />
                     <YAxis hide domain={['dataMin - 50', 'dataMax + 50']} />
                     <Area type="monotone" dataKey="value" stroke="#22c55e" strokeWidth={2.5} fill="url(#g)" dot={false} activeDot={{ r: 5, fill: '#22c55e', stroke: '#fff', strokeWidth: 2 }} />
                   </AreaChart>
@@ -153,22 +154,36 @@ export function Analytics() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div className="card"><p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Total Trades</p><h2 style={{ fontSize: '1.5rem' }}>{trades.length}</h2></div>
             <div className="card"><p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Win Rate</p><h2 style={{ fontSize: '1.5rem' }}>{winRate.toFixed(1)}%</h2><p style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{wins.length}W / {losses.length}L</p></div>
-            <div className="card"><p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Wins</p><h2 style={{ fontSize: '1.5rem', color: 'var(--green)' }}>{wins.length}</h2></div>
-            <div className="card"><p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Losses</p><h2 style={{ fontSize: '1.5rem', color: 'var(--red)' }}>{losses.length}</h2></div>
+            <div className="card"><p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Net PnL</p><h2 style={{ fontSize: '1.5rem', color: totalPnL >= 0 ? 'var(--green)' : 'var(--red)' }}>{totalPnL >= 0 ? '+' : ''}{fmt(totalPnL)}</h2></div>
+            <div className="card"><p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Profit Factor</p><h2 style={{ fontSize: '1.5rem' }}>{pf.toFixed(2)}</h2></div>
           </div>
+
+          {rollData.length > 1 && (
+            <div className="card">
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 4 }}>Rolling Win Rate (last 20)</p>
+              <div style={{ height: 80 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={rollData}>
+                    <YAxis hide domain={[0, 100]} />
+                    <Line type="monotone" dataKey="rate" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
 
           {trades.length > 0 && (
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 8, marginBottom: 8 }}>
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Best Trade</span>
                 <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--green)' }}>
-                  {trades.reduce((b, t) => t.pnl > b.pnl ? t : b).symbol} +{formatMoney(trades.reduce((b, t) => t.pnl > b.pnl ? t : b).pnl)}
+                  {trades.reduce((b, t) => (t.pnl || 0) > (b.pnl || 0) ? t : b).symbol} +{fmt(trades.reduce((b, t) => (t.pnl || 0) > (b.pnl || 0) ? t : b).pnl || 0)}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Worst Trade</span>
                 <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--red)' }}>
-                  {trades.reduce((w, t) => t.pnl < w.pnl ? t : w).symbol} {formatMoney(trades.reduce((w, t) => t.pnl < w.pnl ? t : w).pnl)}
+                  {trades.reduce((w, t) => (t.pnl || 0) < (w.pnl || 0) ? t : w).symbol} -{fmt(Math.abs(trades.reduce((w, t) => (t.pnl || 0) < (w.pnl || 0) ? t : w).pnl || 0))}
                 </span>
               </div>
             </div>
@@ -176,7 +191,7 @@ export function Analytics() {
         </>
       )}
 
-      {tab === 'Calendar' && <CalView trades={trades} formatMoney={formatMoney} />}
+      {tab === 'Calendar' && <CalView trades={trades} fmt={fmt} />}
 
       {tab === 'Day' && (
         <div className="card">
@@ -198,7 +213,7 @@ export function Analytics() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Wins</span><span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--green)' }}>{d.w}</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Losses</span><span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--red)' }}>{d.l}</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 4 }}><span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Net PnL</span><span style={{ fontSize: '0.82rem', fontWeight: 700, color: d.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{d.pnl >= 0 ? '+' : ''}{formatMoney(d.pnl)}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 4 }}><span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Net PnL</span><span style={{ fontSize: '0.82rem', fontWeight: 700, color: d.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{d.pnl >= 0 ? '+' : ''}{fmt(d.pnl)}</span></div>
                 </div>
               </div>
             ))}
@@ -219,11 +234,75 @@ export function Analytics() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Wins</span><span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--green)' }}>{s.w}</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Losses</span><span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--red)' }}>{s.l}</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 4 }}><span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Net PnL</span><span style={{ fontSize: '0.82rem', fontWeight: 700, color: s.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{s.pnl >= 0 ? '+' : ''}{formatMoney(s.pnl)}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 4 }}><span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Net PnL</span><span style={{ fontSize: '0.82rem', fontWeight: 700, color: s.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{s.pnl >= 0 ? '+' : ''}{fmt(s.pnl)}</span></div>
                 </div>
               </div>
             ))}
           </div>
+        </>
+      )}
+
+      {tab === 'Psychology' && (
+        <>
+          {mistakes.length > 0 && (
+            <div className="card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <AlertTriangle size={16} color="var(--red)" />
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Mistake Cost Analysis</p>
+              </div>
+              {mistakes.map(m => (
+                <div key={m.mistake} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid var(--border)' }}>
+                  <div>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 500 }}>{m.mistake.replace(/_/g, ' ')}</span>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginLeft: 6 }}>{m.count}x ({m.wins}W / {m.losses}L)</span>
+                  </div>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 600, color: m.totalPnl >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                    {m.totalPnl >= 0 ? '+' : ''}{fmt(m.totalPnl)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {emotions.length > 0 && (
+            <div className="card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <Brain size={16} color="var(--accent)" />
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Emotion Performance</p>
+              </div>
+              {emotions.map(e => (
+                <div key={e.emotion} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid var(--border)' }}>
+                  <div>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 500 }}>{e.emotion.charAt(0) + e.emotion.slice(1).toLowerCase()}</span>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginLeft: 6 }}>{e.count} trades</span>
+                  </div>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 600, color: e.totalPnl >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                    {e.totalPnl >= 0 ? '+' : ''}{fmt(e.totalPnl)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {rollData.length > 1 && (
+            <div className="card">
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 4 }}>Win Rate Trend</p>
+              <div style={{ height: 120 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={rollData}>
+                    <YAxis hide domain={[0, 100]} />
+                    <Line type="monotone" dataKey="rate" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          {mistakes.length === 0 && emotions.length === 0 && (
+            <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
+              <p style={{ color: 'var(--text-muted)' }}>Journal more trades to see psychology insights</p>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -231,7 +310,7 @@ export function Analytics() {
 }
 
 /* Calendar sub-component */
-function CalView({ trades, formatMoney }: { trades: any[]; formatMoney: (n: number) => string }) {
+function CalView({ trades, fmt }: { trades: any[]; fmt: (n: number) => string }) {
   const [date, setDate] = useState(new Date());
   const [selected, setSelected] = useState<any>(null);
 
@@ -240,8 +319,8 @@ function CalView({ trades, formatMoney }: { trades: any[]; formatMoney: (n: numb
   const empty = Array.from({ length: offset }, () => null as any);
   let mx = 0, mn = 0;
   const grid = days.map(d => {
-    const dayTrades = trades.filter(t => isSameDay(new Date(t.exitDate), d));
-    const pnl = dayTrades.reduce((s, t) => s + t.pnl, 0);
+    const dayTrades = trades.filter((t: any) => isSameDay(new Date(t.exitDate || t.entryDate), d));
+    const pnl = dayTrades.reduce((s: number, t: any) => s + (t.pnl || 0), 0);
     if (pnl > mx) mx = pnl; if (pnl < mn) mn = pnl;
     return { date: d, pnl, trades: dayTrades, count: dayTrades.length };
   });
@@ -267,7 +346,7 @@ function CalView({ trades, formatMoney }: { trades: any[]; formatMoney: (n: numb
               style={{ padding: 4, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', display: 'flex' }}><ChevronRight size={16} /></button>
           </div>
           <span style={{ fontSize: '0.82rem', fontWeight: 600, color: monthPnl >= 0 ? 'var(--green)' : 'var(--red)' }}>
-            {monthPnl >= 0 ? '+' : ''}{formatMoney(monthPnl)}
+            {monthPnl >= 0 ? '+' : ''}{fmt(monthPnl)}
           </span>
         </div>
 
@@ -279,19 +358,15 @@ function CalView({ trades, formatMoney }: { trades: any[]; formatMoney: (n: numb
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
           {allDays.map((day, i) => (
             <div key={i} onClick={() => { if (day?.count) setSelected(day); }}
-              style={{
-                aspectRatio: '1', borderRadius: 6, cursor: day?.count ? 'pointer' : 'default',
-                background: day ? getBg(day.pnl) : 'transparent',
-                border: day ? '1px solid var(--border)' : 'transparent',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                minHeight: 36,
-              }}>
+              style={{ aspectRatio: '1', borderRadius: 6, cursor: day?.count ? 'pointer' : 'default',
+                background: day ? getBg(day.pnl) : 'transparent', border: day ? '1px solid var(--border)' : 'transparent',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 36 }}>
               {day && (
                 <>
                   <span style={{ fontSize: '0.68rem', fontWeight: day.count ? 700 : 400, color: day.count ? '#fff' : 'var(--text-muted)', textShadow: day.count ? '0 1px 2px rgba(0,0,0,0.3)' : 'none' }}>
                     {format(day.date, 'd')}
                   </span>
-                  {day.count > 0 && <span style={{ fontSize: '0.48rem', fontWeight: 600, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{formatMoney(day.pnl)}</span>}
+                  {day.count > 0 && <span style={{ fontSize: '0.48rem', fontWeight: 600, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{fmt(day.pnl)}</span>}
                 </>
               )}
             </div>
@@ -304,7 +379,7 @@ function CalView({ trades, formatMoney }: { trades: any[]; formatMoney: (n: numb
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <h3 style={{ fontSize: '0.95rem' }}>{format(selected.date, 'MMMM d, yyyy')}</h3>
             <span style={{ fontSize: '0.85rem', fontWeight: 700, color: selected.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>
-              Net: {selected.pnl >= 0 ? '+' : ''}{formatMoney(selected.pnl)}
+              Net: {selected.pnl >= 0 ? '+' : ''}{fmt(selected.pnl)}
             </span>
           </div>
           {selected.trades.map((t: any) => (
@@ -313,8 +388,8 @@ function CalView({ trades, formatMoney }: { trades: any[]; formatMoney: (n: numb
                 <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{t.symbol}</span>
                 <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginLeft: 6 }}>{t.strategy}</span>
               </div>
-              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: t.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                {t.pnl >= 0 ? '+' : ''}{formatMoney(t.pnl)}
+              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: (t.pnl || 0) >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                {(t.pnl || 0) >= 0 ? '+' : ''}{fmt(t.pnl || 0)}
               </span>
             </div>
           ))}

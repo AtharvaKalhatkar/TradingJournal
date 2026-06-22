@@ -1,107 +1,146 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, TrendingUp, TrendingDown, Target, DollarSign } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, Target, TrendingUp, Star, Check, X } from 'lucide-react';
+import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 import { AddTradeModal } from '../components/trades/AddTradeModal';
-import { useTradeContext } from '../context/TradeContext';
-
-function calcMetrics(trades: any[]) {
-  if (!trades.length) return { totalTrades: 0, winRate: 0, totalPnL: 0, profitFactor: 0, wins: 0, losses: 0 };
-  const wins = trades.filter(t => t.pnl > 0);
-  const losses = trades.filter(t => t.pnl <= 0);
-  const gp = wins.reduce((s, t) => s + t.pnl, 0);
-  const gl = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
-  return {
-    totalTrades: trades.length,
-    winRate: (wins.length / trades.length) * 100,
-    totalPnL: trades.reduce((s, t) => s + t.pnl, 0),
-    profitFactor: gl === 0 ? (gp > 0 ? 99 : 0) : gp / gl,
-    wins: wins.length,
-    losses: losses.length,
-  };
-}
-
-const inspirations = [
-  'Track every trade. Find your edge. Grow consistently.',
-  'A trade not journaled is a lesson not learned.',
-  'Small losses, big wins — that\'s the formula.',
-  'Discipline > Motivation. Log your trades daily.',
-  'Your journal is your roadmap to profitability.',
-];
+import { useTrade } from '../context/TradeContext';
+import { rollingWinRate } from '../utils/calculations';
 
 export function Home() {
-  const { trades, formatMoney } = useTradeContext();
-  const [showModal, setShowModal] = useState(false);
-  const m = calcMetrics(trades);
-  const quote = inspirations[Math.floor(Math.random() * inspirations.length)];
-  const navigate = useNavigate();
+  const { trades, fmt, goals, updateGoal } = useTrade();
+  const [show, setShow] = useState(false);
+  const [editGoal, setEditGoal] = useState(false);
+  const [goalInput, setGoalInput] = useState('');
+
+  const wins = trades.filter(t => t.pnl > 0);
+  const losses = trades.filter(t => t.pnl <= 0);
+  const totalPnl = trades.reduce((s, t) => s + t.pnl, 0);
+  const winRate = trades.length > 0 ? (wins.length / trades.length) * 100 : 0;
+  const gp = wins.reduce((s, t) => s + t.pnl, 0);
+  const gl = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
+  const pf = gl === 0 ? (gp > 0 ? 99 : 0) : gp / gl;
+
+  const sparkline = useMemo(() => rollingWinRate(trades, 10), [trades]);
+
+  const monthPnl = useMemo(() => {
+    const now = new Date();
+    return trades.filter(t => {
+      const d = new Date(t.exitDate || t.entryDate);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).reduce((s, t) => s + t.pnl, 0);
+  }, [trades]);
+
+  const goal = goals.find(g => g.type === 'MONTHLY_PNL');
+  const goalProgress = goal && goal.target > 0 ? Math.min(100, (monthPnl / goal.target) * 100) : 0;
+
+  const openTrades = trades.filter(t => t.status === 'OPEN').length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingTop: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingTop: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 2 }}>Welcome back,</p>
-          <h1 style={{ fontSize: '1.4rem' }}>Trader</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 2 }}>Welcome back,</p>
+          <h1 style={{ fontSize: 22 }}>Trader</h1>
         </div>
-        <div style={{
-          width: 40, height: 40, borderRadius: '50%',
-          background: 'var(--accent-bg)', display: 'flex',
-          alignItems: 'center', justifyContent: 'center',
-        }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        </div>
+        <button onClick={() => document.documentElement.setAttribute('data-theme',
+          document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark')}
+          style={{ width: 40, height: 40, borderRadius: 20, background: 'var(--accent-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
       </div>
 
-      <div className="card" style={{ padding: '1.25rem', background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', border: 'none' }}>
-        <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.88rem', lineHeight: 1.6, fontStyle: 'italic' }}>
-          {quote}
+      <div style={{ padding: '1rem 1.25rem', borderRadius: 12, background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}>
+        <p style={{ color: '#fff', fontSize: 14, lineHeight: 1.6, opacity: 0.9 }}>
+          Track every trade. Find your edge. Grow consistently.
         </p>
       </div>
 
-      {trades.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div className="card">
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 4 }}>Net P&L</p>
-            <h2 style={{ color: m.totalPnL >= 0 ? 'var(--green)' : 'var(--red)', fontSize: '1.4rem' }}>
-              {m.totalPnL >= 0 ? '+' : ''}{formatMoney(m.totalPnL)}
-            </h2>
+      {goal && (
+        <div className="card" style={{ padding: '0.8rem 1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Target size={14} color="var(--accent)" />
+              <span style={{ fontSize: 13, fontWeight: 600 }}>Monthly Goal</span>
+            </div>
+            {editGoal ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input type="number" value={goalInput} onChange={e => setGoalInput(e.target.value)}
+                  style={{ width: 100, padding: '0.3rem 0.5rem', fontSize: '0.85rem' }} autoFocus />
+                <button onClick={() => { updateGoal({ ...goal, target: Number(goalInput) || 0 }); setEditGoal(false); }}
+                  style={{ padding: 4, color: 'var(--green)' }}><Check size={16} /></button>
+                <button onClick={() => setEditGoal(false)} style={{ padding: 4, color: 'var(--text-muted)' }}><X size={16} /></button>
+              </div>
+            ) : (
+              <button onClick={() => { setGoalInput(String(goal.target)); setEditGoal(true); }}
+                style={{ fontSize: 12, fontWeight: 600, color: monthPnl >= 0 ? 'var(--green)' : 'var(--red)', padding: '2px 6px', borderRadius: 6, border: '1px dashed var(--border)' }}>
+                {fmt(monthPnl)} / {fmt(goal.target)}
+              </button>
+            )}
           </div>
-          <div className="card">
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 4 }}>Win Rate</p>
-            <h2 style={{ fontSize: '1.4rem' }}>{m.winRate.toFixed(1)}%</h2>
-            <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{m.wins}W / {m.losses}L</p>
-          </div>
-          <div className="card">
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 4 }}>Total Trades</p>
-            <h2 style={{ fontSize: '1.4rem' }}>{m.totalTrades}</h2>
-          </div>
-          <div className="card">
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 4 }}>Profit Factor</p>
-            <h2 style={{ fontSize: '1.4rem' }}>{m.profitFactor.toFixed(2)}</h2>
+          <div style={{ height: 6, borderRadius: 3, background: 'var(--bg-input)', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${Math.min(100, goalProgress)}%`, borderRadius: 3,
+              background: goalProgress >= 100 ? 'var(--green)' : 'var(--accent)', transition: 'width 0.5s ease' }} />
           </div>
         </div>
       )}
 
-      {trades.length === 0 && (
-        <div className="card" style={{ textAlign: 'center', padding: '2.5rem 1.5rem' }}>
-          <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', marginBottom: 12 }}>No trades yet. Start your trading journal today!</p>
+      {sparkline.length > 1 && (
+        <div className="card" style={{ padding: '0.5rem 0.75rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Rolling Win Rate (last 10)</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent)' }}>
+              {sparkline[sparkline.length - 1]?.rate.toFixed(0)}%
+            </span>
+          </div>
+          <div style={{ height: 50 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={sparkline}>
+                <YAxis hide domain={[0, 100]} />
+                <Line type="monotone" dataKey="rate" stroke="#3b82f6" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       )}
 
-      <button
-        onClick={() => setShowModal(true)}
-        style={{
-          width: '100%', padding: '1rem', borderRadius: 'var(--radius-md)',
-          background: 'var(--accent)', color: '#fff', fontSize: '1.05rem',
-          fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          gap: 8, marginTop: 8,
-          boxShadow: '0 4px 16px rgba(59, 130, 246, 0.35)',
-        }}
-      >
-        <Plus size={22} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+        <div className="card" style={{ padding: '0.7rem' }}>
+          <p style={{ fontSize: 10, color: 'var(--text-muted)' }}>Trades</p>
+          <p style={{ fontSize: 18, fontWeight: 700 }}>{trades.length}</p>
+        </div>
+        <div className="card" style={{ padding: '0.7rem' }}>
+          <p style={{ fontSize: 10, color: 'var(--text-muted)' }}>Win Rate</p>
+          <p style={{ fontSize: 18, fontWeight: 700 }}>{winRate.toFixed(0)}%</p>
+        </div>
+        <div className="card" style={{ padding: '0.7rem' }}>
+          <p style={{ fontSize: 10, color: 'var(--text-muted)' }}>PnL</p>
+          <p style={{ fontSize: 18, fontWeight: 700, color: totalPnl >= 0 ? 'var(--green)' : 'var(--red)' }}>
+            {totalPnl >= 0 ? '+' : ''}{fmt(totalPnl)}
+          </p>
+        </div>
+        <div className="card" style={{ padding: '0.7rem' }}>
+          <p style={{ fontSize: 10, color: 'var(--text-muted)' }}>P.Factor</p>
+          <p style={{ fontSize: 18, fontWeight: 700 }}>{pf.toFixed(1)}</p>
+        </div>
+      </div>
+
+      {openTrades > 0 && (
+        <div style={{ padding: '0.75rem 1rem', borderRadius: 10, background: 'rgba(245,158,11,0.12)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b' }} />
+          <span style={{ fontSize: 13, color: '#f59e0b', fontWeight: 600 }}>{openTrades} open trade{openTrades > 1 ? 's' : ''} — close from Journal</span>
+        </div>
+      )}
+
+      <button onClick={() => setShow(true)}
+        style={{ width: '100%', padding: '0.9rem', borderRadius: 10, background: 'var(--accent)', color: '#fff', fontSize: 16, fontWeight: 600,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8,
+          boxShadow: '0 4px 16px rgba(59,130,246,0.35)' }}>
+        <Plus size={20} />
         ADD JOURNAL
       </button>
 
-      {showModal && <AddTradeModal onClose={() => setShowModal(false)} />}
+      {show && <AddTradeModal onClose={() => setShow(false)} />}
     </div>
   );
 }
