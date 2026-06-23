@@ -101,7 +101,7 @@ export function AddTradeModal({ onClose, editTrade }: Props) {
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
       <div className="fade-in" style={{ position: 'absolute', inset: 0, background: 'var(--overlay)' }} onClick={onClose} />
       <div className="slide-up" style={{
-        width: '100%', maxWidth: 480, maxHeight: '92vh',
+        width: '100%', maxWidth: 540, maxHeight: '92vh',
         background: 'var(--modal-bg)', borderRadius: '20px 20px 0 0',
         zIndex: 201, display: 'flex', flexDirection: 'column',
       }}>

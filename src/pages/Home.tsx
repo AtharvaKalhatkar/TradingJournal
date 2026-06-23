@@ -5,6 +5,66 @@ import { AddTradeModal } from '../components/trades/AddTradeModal';
 import { useTrade } from '../context/TradeContext';
 import { rollingWinRate } from '../utils/calculations';
 
+const quotes = [
+  "Track every trade. Find your edge. Grow consistently.",
+  "A trade not journaled is a lesson not learned.",
+  "Small losses, big wins — that's the formula.",
+  "Discipline > Motivation. Log your trades daily.",
+  "Your journal is your roadmap to profitability.",
+  "The market rewards consistency, not luck.",
+  "Plan the trade, trade the plan.",
+  "Losses are tuition. Learn from every one.",
+  "The best traders are the best students of their own mistakes.",
+  "Patience is not passive — it's a trading skill.",
+  "Cut losses short, let winners run.",
+  "Don't let a good trade turn into a bad one by holding too long.",
+  "Your edge is only as good as your discipline.",
+  "The market doesn't care about your opinion — only your reaction.",
+  "Every trade is a data point. Collect them all.",
+  "Risk management is more important than trade selection.",
+  "Be greedy when others are fearful, fearful when others are greedy.",
+  "The stock market is a device for transferring money from the impatient to the patient.",
+  "It's not about being right, it's about making money when you're right.",
+  "The trend is your friend until the end.",
+  "Don't fight the tape.",
+  "What seems too high in price usually goes higher, and what seems too low usually goes lower.",
+  "In trading, you must be defensively aggressive.",
+  "Trading is 80% psychology and 20% strategy.",
+  "The goal of a successful trader is to make the best trades. Money is secondary.",
+  "If you're wrong, get out quickly. Don't turn a small loss into a big one.",
+  "The key to trading success is emotional discipline.",
+  "Markets can remain irrational longer than you can remain solvent.",
+  "Don't catch a falling knife.",
+  "Buy the rumor, sell the news.",
+  "The most dangerous words in investing are 'this time is different'.",
+  "Compound interest is the eighth wonder of the world.",
+  "Price is what you pay, value is what you get.",
+  "Winning in trading doesn't mean every trade wins — it means your strategy wins over time.",
+  "Your trading journal is your most powerful tool for improvement.",
+  "Review your losing trades more carefully than your winners.",
+  "A good trader is a humble trader.",
+  "The market will test your patience before rewarding it.",
+  "Trade what you see, not what you think.",
+  "Overconfidence is the most dangerous emotion in trading.",
+  "Consistency beats intensity in the long run.",
+  "If you can't take a small loss, you'll eventually take a large one.",
+  "Trading is a marathon, not a sprint.",
+  "The best trade is the one you don't take.",
+  "Know when to hold, know when to fold.",
+  "Adapt or die — the market changes constantly.",
+  "Your risk per trade should be small enough that no single loss hurts.",
+  "Trading success comes from surviving long enough to let your edge play out.",
+  "Focus on process, not outcomes.",
+  "A loss is only permanent if you don't learn from it.",
+];
+
+function dailyQuote() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 0);
+  const dayOfYear = Math.floor((now.getTime() - start.getTime()) / 86400000);
+  return quotes[dayOfYear % quotes.length];
+}
+
 export function Home() {
   const { trades, fmt, goals, updateGoal } = useTrade();
   const [show, setShow] = useState(false);
@@ -52,7 +112,7 @@ export function Home() {
 
       <div style={{ padding: '1rem 1.25rem', borderRadius: 12, background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}>
         <p style={{ color: '#fff', fontSize: 14, lineHeight: 1.6, opacity: 0.9 }}>
-          Track every trade. Find your edge. Grow consistently.
+          {dailyQuote()}
         </p>
       </div>
 

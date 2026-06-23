@@ -11,11 +11,11 @@ const tabs = [
 
 export function BottomNav() {
   return (
-    <div style={{
+    <div className="bottom-nav" style={{
       position: 'fixed', bottom: 0, left: 0, right: 0,
-      background: '#fff', borderTop: '1px solid var(--border)',
+      background: 'var(--nav-bg)', borderTop: '1px solid var(--border)',
       display: 'flex', padding: '0.4rem 0 calc(0.4rem + env(safe-area-inset-bottom))',
-      maxWidth: 480, margin: '0 auto', zIndex: 100,
+      margin: '0 auto', zIndex: 100,
     }}>
       {tabs.map(t => (
         <NavLink key={t.to} to={t.to} style={({ isActive }) => ({

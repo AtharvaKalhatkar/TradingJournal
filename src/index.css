@@ -61,17 +61,33 @@ body {
 }
 
 #root {
-  max-width: 480px;
+  max-width: 600px;
   margin: 0 auto;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg);
   position: relative;
+  box-shadow: 0 0 40px rgba(0,0,0,0.04);
+}
+
+@media (min-width: 640px) {
+  #root {
+    max-width: 720px;
+    box-shadow: 0 0 60px rgba(0,0,0,0.06);
+  }
+}
+
+@media (min-width: 1024px) {
+  #root {
+    max-width: 960px;
+  }
 }
 
 .app {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .page {
@@ -80,10 +96,27 @@ body {
   overflow-y: auto;
 }
 
+@media (min-width: 640px) {
+  .page {
+    padding: 1.5rem 2rem 5.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page {
+    padding: 2rem 2.5rem 5.5rem;
+  }
+}
+
 h1 { font-size: 1.35rem; font-weight: 700; }
 h2 { font-size: 1.15rem; font-weight: 600; }
 h3 { font-size: 1rem; font-weight: 600; }
 p { color: var(--text-secondary); }
+
+@media (min-width: 1024px) {
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.25rem; }
+}
 
 .text-green { color: var(--green); }
 .text-red { color: var(--red); }
@@ -144,6 +177,16 @@ label {
 @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 .fade-in { animation: fadeIn 0.2s ease; }
 .slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+
+.bottom-nav {
+  max-width: 600px;
+}
+@media (min-width: 640px) {
+  .bottom-nav { max-width: 720px; }
+}
+@media (min-width: 1024px) {
+  .bottom-nav { max-width: 960px; }
+}
 
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
